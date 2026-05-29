@@ -3,321 +3,132 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>汎用360度パノラマビューアー</title>
+  <title>360° Panorama Image / Video Viewer</title>
   <style>
-    html, body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #0b0b0f;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: #fff;
+    :root{
+      --bg:#0b0f14; --panel:rgba(16,22,30,.84); --line:rgba(255,255,255,.16);
+      --text:#eef4ff; --sub:#aeb8c8; --accent:#78d0ff; --warn:#ffd479; --ok:#8dffbd; --bad:#ff9b9b;
     }
-    #viewer {
-      position: fixed;
-      inset: 0;
-    }
-    #dropZone {
-      position: fixed;
-      inset: 0;
-      z-index: 10;
-      display: grid;
-      place-items: center;
-      background: radial-gradient(circle at center, rgba(40,40,52,.92), rgba(7,7,12,.98));
-      transition: opacity .2s ease;
-      text-align: center;
-      padding: 24px;
-      box-sizing: border-box;
-    }
-    #dropZone.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-    #dropZone.dragover {
-      background: radial-gradient(circle at center, rgba(70,95,140,.95), rgba(7,7,12,.98));
-    }
-    .panel {
-      width: min(720px, 92vw);
-      border: 1px solid rgba(255,255,255,.18);
-      border-radius: 24px;
-      background: rgba(255,255,255,.07);
-      box-shadow: 0 20px 80px rgba(0,0,0,.45);
-      padding: 34px 28px;
-      backdrop-filter: blur(14px);
-    }
-    h1 {
-      margin: 0 0 12px;
-      font-size: clamp(24px, 4vw, 40px);
-      letter-spacing: .02em;
-    }
-    p {
-      margin: 8px 0;
-      line-height: 1.75;
-      color: rgba(255,255,255,.82);
-    }
-    .button {
-      display: inline-block;
-      margin-top: 22px;
-      padding: 12px 20px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.3);
-      background: rgba(255,255,255,.14);
-      color: #fff;
-      cursor: pointer;
-      user-select: none;
-    }
-    #fileInput { display: none; }
-    #toolbar {
-      position: fixed;
-      left: 16px;
-      top: 16px;
-      z-index: 20;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      padding: 8px;
-      border-radius: 16px;
-      background: rgba(0,0,0,.42);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,.12);
-    }
-    #toolbar button, #toolbar label {
-      border: 0;
-      border-radius: 999px;
-      padding: 9px 13px;
-      color: #fff;
-      background: rgba(255,255,255,.16);
-      cursor: pointer;
-      font-size: 13px;
-      user-select: none;
-    }
-    #toolbar button:hover, #toolbar label:hover, .button:hover {
-      background: rgba(255,255,255,.24);
-    }
-    #hint {
-      position: fixed;
-      right: 16px;
-      bottom: 16px;
-      z-index: 20;
-      max-width: min(420px, calc(100vw - 32px));
-      padding: 10px 14px;
-      border-radius: 14px;
-      color: rgba(255,255,255,.78);
-      background: rgba(0,0,0,.42);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,.12);
-      font-size: 13px;
-      line-height: 1.6;
-    }
-    canvas { display: block; }
+    *{box-sizing:border-box}
+    body{margin:0;overflow:hidden;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    #app{position:fixed;inset:0;width:100vw;height:100vh}
+    canvas{display:block;width:100vw!important;height:100vh!important}
+    .panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;padding:20px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:22px;box-shadow:0 12px 40px rgba(0,0,0,.35);z-index:10}
+    .panel.loaded{left:16px;top:16px;transform:none;width:min(430px,calc(100vw - 32px));padding:16px}
+    h1{font-size:22px;margin:0 0 8px;letter-spacing:.02em}.loaded h1{font-size:18px}.sub{font-size:13px;color:var(--sub);line-height:1.55;margin:0 0 12px}
+    #drop{display:block;border:2px dashed rgba(120,208,255,.55);border-radius:16px;padding:28px 18px;text-align:center;background:rgba(120,208,255,.07);transition:.15s;cursor:pointer}.loaded #drop{padding:18px}.drag #drop,#drop:hover{background:rgba(120,208,255,.16);border-color:var(--accent)}
+    #drop strong{display:block;font-size:15px;margin-bottom:4px}#file{display:none}.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    button{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.08);color:var(--text);padding:9px 11px;border-radius:12px;cursor:pointer;font-weight:650}button:hover{background:rgba(255,255,255,.14)}button:disabled{opacity:.45;cursor:not-allowed}
+    .meta{margin-top:12px;border-top:1px solid var(--line);padding-top:12px;display:none}.meta.show{display:block}.meta h2{font-size:14px;margin:0 0 8px}.meta p{font-size:12px;line-height:1.55;color:var(--sub);margin:0 0 8px}.check{margin-top:12px;border-top:1px solid var(--line);padding-top:12px;display:none}.check.show{display:block}.checkGrid{display:grid;grid-template-columns:120px 1fr;gap:6px 10px;font-size:12px;color:var(--sub)}.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:4px 8px;font-weight:700}.pill.ok{color:var(--ok);background:rgba(141,255,189,.08)}.pill.warn{color:var(--warn);background:rgba(255,212,121,.08)}.pill.bad{color:var(--bad);background:rgba(255,155,155,.08)}
+    code,textarea{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}textarea{width:100%;height:84px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.28);color:var(--text);padding:10px;font-size:12px;resize:vertical}
+    #status{position:fixed;left:16px;bottom:16px;right:16px;pointer-events:none;color:#dce8f7;text-shadow:0 2px 10px #000;font-size:13px;z-index:9}.badge{display:inline-block;background:rgba(0,0,0,.45);border:1px solid var(--line);border-radius:999px;padding:7px 10px;margin-top:8px}
+    #videoControls{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:none;gap:8px;background:var(--panel);border:1px solid var(--line);padding:10px;border-radius:16px;z-index:10;align-items:center}#videoControls.show{display:flex}input[type=range]{width:160px}.small{font-size:12px;color:var(--sub)}
+    .hint{position:fixed;right:16px;top:16px;max-width:330px;padding:12px 14px;border-radius:16px;background:rgba(0,0,0,.38);border:1px solid var(--line);color:var(--sub);font-size:12px;line-height:1.55;z-index:8}
+    @media(max-width:720px){.hint{display:none}.panel,.panel.loaded{left:16px;right:16px;top:16px;transform:none;width:auto}.row button{flex:1}#videoControls{left:16px;right:16px;transform:none;justify-content:center;flex-wrap:wrap}input[type=range]{width:120px}}
   </style>
 </head>
 <body>
-  <div id="viewer"></div>
-
-  <div id="toolbar">
-    <label for="fileInput">画像を開く</label>
-    <button id="resetBtn" type="button">視点リセット</button>
-    <button id="dropBtn" type="button">ドロップ画面</button>
-  </div>
-
-  <div id="hint">ドラッグで視点移動 ／ ホイールでズーム ／ 2:1の正距円筒パノラマ画像推奨</div>
-
-  <div id="dropZone">
-    <div class="panel">
-      <h1>360度パノラマビューアー</h1>
-      <p>ここに360度パノラマ画像をドラッグ＆ドロップしてください。</p>
-      <p>JPEG / PNG / WebP対応。画像はアップロードされず、このブラウザ内だけで表示されます。</p>
-      <label class="button" for="fileInput">ファイルを選択</label>
+  <div id="app"></div>
+  <section class="panel" id="panel">
+    <h1>360° Panorama Viewer</h1>
+    <p class="sub">正距円筒図法 / Equirectangular の画像・動画をドラッグ＆ドロップで表示します。マウスドラッグで視点移動、ホイールでズーム。</p>
+    <label id="drop" for="file"><strong>画像 or 動画をここへドロップ</strong><span>JPG / PNG / WebP / MP4 / WebM</span></label>
+    <input id="file" type="file" accept="image/*,video/mp4,video/webm,video/quicktime" />
+    <div class="row">
+      <button id="resetBtn">視点リセット</button><button id="autoBtn">自動回転 OFF</button><button id="fullBtn">全画面</button><button id="downloadBtn" disabled>元ファイルDL</button>
     </div>
-  </div>
+    <div class="check" id="checkBox">
+      <h2>動画チェック</h2>
+      <div class="checkGrid">
+        <div>判定</div><div id="judge"><span class="pill warn">未チェック</span></div>
+        <div>ファイル形式</div><div id="fileType">-</div>
+        <div>解像度</div><div id="resolution">-</div>
+        <div>比率</div><div id="ratio">-</div>
+        <div>メタ情報</div><div id="metadataGuess">ブラウザ簡易版では厳密解析なし</div>
+      </div>
+      <p id="checkNote" class="small" style="margin-top:10px">MP4 / WebM / MOVの動画を読み込むと、2:1比率かどうかを見て360度動画候補を判定します。</p>
+    </div>
+    <div class="meta" id="metaBox">
+      <h2>YouTube用 360°動画メタデータ</h2>
+      <p id="injectNote">この動画は360度動画候補ですが、ブラウザ簡易版では既存メタデータの有無を厳密には確認しません。YouTube投稿前に、Google Spatial Media Metadata Injectorで360°メタ情報を追加してください。</p>
+      <textarea id="cmd" readonly></textarea>
+      <div class="row"><button id="copyBtn">コマンドをコピー</button><button id="downloadOriginalBtn">元動画をダウンロード</button></div>
+      <p class="small">出力された <code>*_360_injected.mp4</code> をYouTubeへアップロードします。YouTube側の360°処理反映には時間がかかる場合があります。</p>
+    </div>
+  </section>
+  <div class="hint">操作：ドラッグで見回す / ホイールでズーム / 動画は下の再生ボタン。<br>スマホでは指でドラッグできます。</div>
+  <div id="videoControls"><button id="playBtn">再生</button><input id="seek" type="range" min="0" max="1000" value="0"><span id="time">0:00 / 0:00</span><button id="muteBtn">音声ON</button></div>
+  <div id="status"><span class="badge">ファイル未選択</span></div>
 
-  <input id="fileInput" type="file" accept="image/*" />
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script>
+  (()=>{
+    const app=document.getElementById('app'), panel=document.getElementById('panel'), drop=document.getElementById('drop'), fileInput=document.getElementById('file');
+    const status=document.getElementById('status'), metaBox=document.getElementById('metaBox'), checkBox=document.getElementById('checkBox'), cmd=document.getElementById('cmd');
+    const dlBtn=document.getElementById('downloadBtn'), autoBtn=document.getElementById('autoBtn'), resetBtn=document.getElementById('resetBtn'), fullBtn=document.getElementById('fullBtn');
+    const controls=document.getElementById('videoControls'), playBtn=document.getElementById('playBtn'), seek=document.getElementById('seek'), timeLabel=document.getElementById('time'), muteBtn=document.getElementById('muteBtn');
+    let scene,camera,renderer,sphere,texture,videoEl,currentURL,currentFile,isVideo=false,autoRotate=false;
+    let lon=0,lat=0,phi=0,theta=0,isDown=false,startX=0,startY=0,startLon=0,startLat=0,fov=75;
 
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-      }
+    init(); animate();
+    function init(){
+      scene=new THREE.Scene(); camera=new THREE.PerspectiveCamera(fov,innerWidth/innerHeight,1,1100);
+      renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(devicePixelRatio); renderer.setSize(innerWidth,innerHeight); app.appendChild(renderer.domElement);
+      const geo=new THREE.SphereGeometry(500,96,64); geo.scale(-1,1,1);
+      const mat=new THREE.MeshBasicMaterial({color:0x111820}); sphere=new THREE.Mesh(geo,mat); scene.add(sphere);
+      addEvents();
     }
-  </script>
-
-  <script type="module">
-    import * as THREE from 'three';
-
-    const viewer = document.getElementById('viewer');
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    const resetBtn = document.getElementById('resetBtn');
-    const dropBtn = document.getElementById('dropBtn');
-
-    let camera, scene, renderer, mesh, texture;
-    let lon = 0, lat = 0;
-    let phi = 0, theta = 0;
-    let isPointerDown = false;
-    let pointerDownX = 0, pointerDownY = 0;
-    let lonOnPointerDown = 0, latOnPointerDown = 0;
-    let fov = 75;
-
-    init();
-    animate();
-
-    function init() {
-      scene = new THREE.Scene();
-
-      camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 1, 1100);
-      camera.target = new THREE.Vector3(0, 0, 0);
-
-      const geometry = new THREE.SphereGeometry(500, 80, 40);
-      geometry.scale(-1, 1, 1);
-
-      const placeholder = createPlaceholderTexture();
-      const material = new THREE.MeshBasicMaterial({ map: placeholder });
-      mesh = new THREE.Mesh(geometry, material);
-      scene.add(mesh);
-
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      viewer.appendChild(renderer.domElement);
-
-      renderer.domElement.addEventListener('pointerdown', onPointerDown);
-      window.addEventListener('pointermove', onPointerMove);
-      window.addEventListener('pointerup', onPointerUp);
-      renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
-      window.addEventListener('resize', onWindowResize);
-
-      setupDragAndDrop();
+    function addEvents(){
+      addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+      ['dragenter','dragover'].forEach(e=>document.addEventListener(e,ev=>{ev.preventDefault();document.body.classList.add('drag')}));
+      ['dragleave','drop'].forEach(e=>document.addEventListener(e,ev=>{ev.preventDefault();document.body.classList.remove('drag')}));
+      document.addEventListener('drop',ev=>{const f=ev.dataTransfer.files?.[0]; if(f) loadFile(f)});
+      fileInput.addEventListener('change',ev=>{const f=ev.target.files?.[0]; if(f) loadFile(f)});
+      renderer.domElement.addEventListener('pointerdown',ev=>{isDown=true;startX=ev.clientX;startY=ev.clientY;startLon=lon;startLat=lat;renderer.domElement.setPointerCapture(ev.pointerId)});
+      renderer.domElement.addEventListener('pointermove',ev=>{if(!isDown)return; lon=(startX-ev.clientX)*0.12+startLon; lat=(ev.clientY-startY)*0.12+startLat; lat=Math.max(-85,Math.min(85,lat));});
+      renderer.domElement.addEventListener('pointerup',()=>isDown=false);
+      renderer.domElement.addEventListener('wheel',ev=>{ev.preventDefault(); fov=Math.max(35,Math.min(100,fov+ev.deltaY*0.03)); camera.fov=fov; camera.updateProjectionMatrix();},{passive:false});
+      resetBtn.onclick=()=>{lon=0;lat=0;fov=75;camera.fov=fov;camera.updateProjectionMatrix();};
+      autoBtn.onclick=()=>{autoRotate=!autoRotate;autoBtn.textContent='自動回転 '+(autoRotate?'ON':'OFF')};
+      fullBtn.onclick=()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()};
+      dlBtn.onclick=()=>{if(!currentFile)return; const a=document.createElement('a');a.href=currentURL;a.download=currentFile.name;a.click();};
+      document.getElementById('copyBtn').onclick=async()=>{await navigator.clipboard.writeText(cmd.value); setStatus('コマンドをコピーしました');};
+      document.getElementById('downloadOriginalBtn').onclick=()=>{ if(currentFile){ const a=document.createElement('a'); a.href=currentURL; a.download=currentFile.name; a.click(); }};
+      playBtn.onclick=()=>{if(!videoEl)return; videoEl.paused?videoEl.play():videoEl.pause();};
+      muteBtn.onclick=()=>{if(!videoEl)return; videoEl.muted=!videoEl.muted; muteBtn.textContent=videoEl.muted?'音声OFF':'音声ON';};
+      seek.oninput=()=>{if(videoEl&&videoEl.duration) videoEl.currentTime=(seek.value/1000)*videoEl.duration;};
     }
-
-    function createPlaceholderTexture() {
-      const canvas = document.createElement('canvas');
-      canvas.width = 2048;
-      canvas.height = 1024;
-      const ctx = canvas.getContext('2d');
-      const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      grad.addColorStop(0, '#24384f');
-      grad.addColorStop(0.55, '#18212e');
-      grad.addColorStop(1, '#0b0b0f');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'rgba(255,255,255,.12)';
-      for (let x = 0; x < canvas.width; x += 128) ctx.fillRect(x, 0, 1, canvas.height);
-      for (let y = 0; y < canvas.height; y += 128) ctx.fillRect(0, y, canvas.width, 1);
-      ctx.fillStyle = 'rgba(255,255,255,.75)';
-      ctx.font = '64px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('Drop panorama image', canvas.width / 2, canvas.height / 2);
-      return new THREE.CanvasTexture(canvas);
+    function loadFile(file){
+      cleanup(); currentFile=file; currentURL=URL.createObjectURL(file); isVideo=file.type.startsWith('video/'); dlBtn.disabled=false;
+      panel.classList.add('loaded');
+      if(isVideo) loadVideo(file,currentURL); else loadImage(file,currentURL);
+      setStatus(`${file.name} を読み込みました`);
     }
-
-    function setupDragAndDrop() {
-      ['dragenter', 'dragover'].forEach(type => {
-        window.addEventListener(type, e => {
-          e.preventDefault();
-          dropZone.classList.remove('hidden');
-          dropZone.classList.add('dragover');
-        });
-      });
-
-      ['dragleave', 'drop'].forEach(type => {
-        window.addEventListener(type, e => {
-          e.preventDefault();
-          dropZone.classList.remove('dragover');
-        });
-      });
-
-      window.addEventListener('drop', e => {
-        const file = e.dataTransfer.files && e.dataTransfer.files[0];
-        if (file) loadImageFile(file);
-      });
-
-      fileInput.addEventListener('change', e => {
-        const file = e.target.files && e.target.files[0];
-        if (file) loadImageFile(file);
-      });
-
-      resetBtn.addEventListener('click', resetView);
-      dropBtn.addEventListener('click', () => dropZone.classList.remove('hidden'));
+    function cleanup(){
+      if(texture){texture.dispose(); texture=null;} if(sphere.material.map){sphere.material.map=null; sphere.material.needsUpdate=true;}
+      if(videoEl){videoEl.pause(); videoEl.src=''; videoEl.remove(); videoEl=null;}
+      if(currentURL){URL.revokeObjectURL(currentURL); currentURL=null;}
+      controls.classList.remove('show'); metaBox.classList.remove('show'); checkBox.classList.remove('show');
     }
-
-    function loadImageFile(file) {
-      if (!file.type.startsWith('image/')) {
-        alert('画像ファイルを選択してください。');
-        return;
-      }
-
-      const url = URL.createObjectURL(file);
-      const loader = new THREE.TextureLoader();
-      loader.load(url, loadedTexture => {
-        if (texture) texture.dispose();
-        texture = loadedTexture;
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        mesh.material.map = texture;
-        mesh.material.needsUpdate = true;
-        URL.revokeObjectURL(url);
-        dropZone.classList.add('hidden');
-        resetView();
-      }, undefined, () => {
-        URL.revokeObjectURL(url);
-        alert('画像を読み込めませんでした。');
-      });
+    function loadImage(file,url){
+      new THREE.TextureLoader().load(url,tex=>{tex.colorSpace=THREE.SRGBColorSpace; texture=tex; sphere.material.map=texture; sphere.material.color.set(0xffffff); sphere.material.needsUpdate=true;});
     }
-
-    function resetView() {
-      lon = 0;
-      lat = 0;
-      fov = 75;
-      camera.fov = fov;
-      camera.updateProjectionMatrix();
+    function loadVideo(file,url){
+      videoEl=document.createElement('video'); videoEl.src=url; videoEl.crossOrigin='anonymous'; videoEl.loop=true; videoEl.playsInline=true; videoEl.controls=false; videoEl.muted=false; videoEl.preload='metadata'; document.body.appendChild(videoEl); videoEl.style.display='none';
+      texture=new THREE.VideoTexture(videoEl); texture.colorSpace=THREE.SRGBColorSpace; sphere.material.map=texture; sphere.material.color.set(0xffffff); sphere.material.needsUpdate=true;
+      controls.classList.add('show'); metaBox.classList.add('show');
+      const safe=file.name.replace(/\.mp4$/i,''); cmd.value=`# Google Spatial Media Metadata Injector を入手後、同じフォルダで実行\nspatialmedia -i "${file.name}" "${safe}_360_injected.mp4"`;
+      videoEl.addEventListener('play',()=>playBtn.textContent='一時停止'); videoEl.addEventListener('pause',()=>playBtn.textContent='再生');
+      videoEl.addEventListener('timeupdate',updateTime); videoEl.addEventListener('loadedmetadata',updateTime);
     }
-
-    function onPointerDown(event) {
-      isPointerDown = true;
-      pointerDownX = event.clientX;
-      pointerDownY = event.clientY;
-      lonOnPointerDown = lon;
-      latOnPointerDown = lat;
+    function updateTime(){
+      if(!videoEl||!isFinite(videoEl.duration))return; seek.value=Math.round((videoEl.currentTime/videoEl.duration)*1000)||0; timeLabel.textContent=`${fmt(videoEl.currentTime)} / ${fmt(videoEl.duration)}`;
     }
-
-    function onPointerMove(event) {
-      if (!isPointerDown) return;
-      lon = (pointerDownX - event.clientX) * 0.1 + lonOnPointerDown;
-      lat = (event.clientY - pointerDownY) * 0.1 + latOnPointerDown;
-    }
-
-    function onPointerUp() {
-      isPointerDown = false;
-    }
-
-    function onWheel(event) {
-      event.preventDefault();
-      fov += event.deltaY * 0.05;
-      fov = THREE.MathUtils.clamp(fov, 35, 100);
-      camera.fov = fov;
-      camera.updateProjectionMatrix();
-    }
-
-    function onWindowResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-
-    function animate() {
-      requestAnimationFrame(animate);
-      lat = Math.max(-85, Math.min(85, lat));
-      phi = THREE.MathUtils.degToRad(90 - lat);
-      theta = THREE.MathUtils.degToRad(lon);
-      camera.target.x = 500 * Math.sin(phi) * Math.cos(theta);
-      camera.target.y = 500 * Math.cos(phi);
-      camera.target.z = 500 * Math.sin(phi) * Math.sin(theta);
-      camera.lookAt(camera.target);
-      renderer.render(scene, camera);
-    }
+    function fmt(s){s=Math.floor(s||0);return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`}
+    function setStatus(t){status.innerHTML=`<span class="badge">${escapeHtml(t)}</span>`}
+    function escapeHtml(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+    function animate(){requestAnimationFrame(animate); if(autoRotate&&!isDown) lon+=0.025; lat=Math.max(-85,Math.min(85,lat)); phi=THREE.MathUtils.degToRad(90-lat); theta=THREE.MathUtils.degToRad(lon); camera.lookAt(500*Math.sin(phi)*Math.cos(theta),500*Math.cos(phi),500*Math.sin(phi)*Math.sin(theta)); renderer.render(scene,camera);}
+  })();
   </script>
 </body>
 </html>
